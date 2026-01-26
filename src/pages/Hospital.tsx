@@ -48,6 +48,16 @@ const Hospital = () => {
     loadRecords();
   }, []);
 
+  // Auto-generate invoice
+  useEffect(() => {
+    if (!invoiceNo) {
+      const date = new Date();
+      const random = Math.floor(1000 + Math.random() * 9000);
+      const newInvoice = `INV-${date.getFullYear().toString().slice(-2)}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}-${random}`;
+      setInvoiceNo(newInvoice);
+    }
+  }, []);
+
   const loadRecords = async () => {
     try {
       const data = await sqlApi.treatment.getRecords({ treatmentType: 'Hospital', limit: 50 });
@@ -76,7 +86,7 @@ const Hospital = () => {
           Visit_Date: new Date().toISOString(),
           Patient_name: employee?.name || "Patient",
           Treatment: 'Hospital',
-          Qr_code: result.qrCode,
+          Qr_code: result.qrCode || "",
           Book_no: employee?.bookNo,
           Hospital_name: hospitalName,
           Opd_Ipd: hospitalType,
@@ -134,7 +144,7 @@ const Hospital = () => {
               <div className="flex items-center gap-4">
                 <Label className="w-32 text-right font-bold text-sky-900">ID</Label>
                 <div className="flex flex-1 gap-2">
-                  <Input className="h-8 border-sky-300 bg-background" />
+                  <Input value={(employee as any)?.id || ""} readOnly className="h-8 border-sky-300 bg-muted" />
                   <Button className="h-8 bg-sky-600 hover:bg-sky-700 font-bold px-4 text-xs">Search</Button>
                 </div>
               </div>

@@ -34,7 +34,14 @@ const VirtualCard = () => {
         if (!user?.id) return;
         try {
             const data = await sqlApi.medicalCards.getByUserId(user.id);
-            setCardData(data);
+            // Fetch family info
+            if (data) {
+                const familyRes = await fetch(`${import.meta.env.VITE_API_URL}/family/${user.id}`);
+                const familyData = await familyRes.json();
+                setCardData({ ...data, family_members: familyData || [] });
+            } else {
+                setCardData(null);
+            }
         } catch (error) {
             console.error('Error fetching card:', error);
         } finally {

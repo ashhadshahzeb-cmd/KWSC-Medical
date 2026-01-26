@@ -14,6 +14,8 @@ import {
   UserCog,
   Database,
   CreditCard,
+  MessageSquare,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,6 +36,7 @@ const allMenuItems = [
   { icon: Shield, label: "Device Management", path: "/devices", permission: "devices" },
   { icon: Users, label: "Employee Entry", path: "/employee-entry", permission: "medicine" },
   { icon: CreditCard, label: "Medical Card", path: "/medical-card", permission: null },
+  { icon: Receipt, label: "Reimbursement", path: "/claims", permission: null },
   { icon: Database, label: "SQL Server", path: "/sql-data", permission: null },
 ];
 
@@ -115,6 +118,28 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                 className="font-medium"
               >
                 User Management
+              </motion.span>
+            )}
+          </Link>
+        )}
+
+        {/* Admin Only: Chat */}
+        {isAdmin && (
+          <Link
+            to="/admin-chat"
+            className={cn(
+              "sidebar-item",
+              location.pathname === "/admin-chat" && "active"
+            )}
+          >
+            <MessageSquare className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="font-medium"
+              >
+                Support Chat
               </motion.span>
             )}
           </Link>

@@ -107,16 +107,19 @@ export const TreatmentProvider = ({ children }: { children: ReactNode }) => {
                 return false;
             }
 
-            // Set employee with cycle info
+            // Set employee with cycle info AND fetched details
+            const validatedEmp = validation.employee || {};
+
             setSession(prev => ({
                 ...prev,
                 employee: {
                     ...emp,
+                    ...validatedEmp, // Merge fetched details (Name, ID, etc)
                     cycleNo: validation.cycleNo,
                     allowMonth: validation.allowMonth,
-                    bookNo: emp.bookNo || prev.bookNo,
-                    patientType: emp.patientType || prev.patientType,
-                    patientNic: emp.patientNic || prev.patientNic,
+                    bookNo: validatedEmp.bookNo || emp.bookNo || prev.bookNo,
+                    patientType: validatedEmp.patientType || emp.patientType || prev.patientType,
+                    patientNic: validatedEmp.patientNic || emp.patientNic || prev.patientNic,
                     reference: emp.reference || prev.reference,
                     vendor: emp.vendor || prev.vendor,
                     store: emp.store || prev.store,

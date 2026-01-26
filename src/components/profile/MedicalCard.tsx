@@ -148,6 +148,24 @@ const MedicalCard = ({ data }: MedicalCardProps) => {
                             </div>
                         </div>
 
+                        {/* Family Section */}
+                        {(data as any).family_members && (data as any).family_members.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-border/50">
+                                <p className="text-[9px] font-bold uppercase tracking-wider mb-1">Covered Dependents</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                    {(data as any).family_members.slice(0, 4).map((m: any, i: number) => (
+                                        <div key={i} className="text-[10px] bg-muted/50 px-1 py-0.5 rounded flex justify-between">
+                                            <span className="truncate max-w-[60px]">{m.name}</span>
+                                            <span className="opacity-70 text-[8px] uppercase">{m.relation}</span>
+                                        </div>
+                                    ))}
+                                    {(data as any).family_members.length > 4 && (
+                                        <div className="text-[9px] opacity-70 italic">+{(data as any).family_members.length - 4} more</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="mt-2 pt-2 border-t border-border/50 flex flex-col items-center justify-center gap-1">
                             <p className="text-[8px] text-muted-foreground uppercase tracking-tighter text-center">VALID AT AUTHORIZED CENTERS ONLY</p>
                         </div>

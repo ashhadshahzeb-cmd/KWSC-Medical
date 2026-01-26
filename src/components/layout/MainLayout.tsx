@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { motion, AnimatePresence } from "framer-motion";
+import ChatWidget from "../chat/ChatWidget";
 
 const MainLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -28,6 +29,7 @@ const MainLayout = () => {
           </AnimatePresence>
         </main>
       </div>
+      <ChatWidget />
     </div>
   );
 };

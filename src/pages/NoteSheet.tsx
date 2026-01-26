@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, ArrowRight, ArrowLeft, Search, FileText, CheckCircle, Printer } from "lucide-react";
+import { Save, RotateCcw, ArrowRight, ArrowLeft, Search, FileText, CheckCircle, Printer, AlertTriangle } from "lucide-react";
+import { apiCall } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,32 @@ const NoteSheet = () => {
     const [records, setRecords] = useState<TreatmentRecord[]>([]);
     const [lastSavedRecord, setLastSavedRecord] = useState<TreatmentRecord | null>(null);
     const [showSummary, setShowSummary] = useState(false);
+    const [policyAlert, setPolicyAlert] = useState<any>(null);
+
+    useEffect(() => {
+        if (empNo.length >= 3) {
+            checkPolicy();
+        } else {
+            setPolicyAlert(null);
+        }
+    }, [empNo, medicineAmount]);
+
+    const checkPolicy = async () => {
+        try {
+            const data = await apiCall(`/policy/check/${empNo}`);
+            // Add current session amount to spent
+            const totalSpent = (data.spent || 0) + (medicineAmount || 0);
+            const isExceeded = totalSpent > data.limit;
+
+            setPolicyAlert({
+                ...data,
+                spent: totalSpent,
+                isExceeded
+            });
+        } catch (err) {
+            console.error("Policy check failed", err);
+        }
+    };
 
     // Initialize from context
     useEffect(() => {
@@ -185,6 +212,34 @@ const NoteSheet = () => {
                                 </div>
                             </div>
 
+                            {/* Policy Alert */}
+                            {policyAlert && (
+                                <div className={`p-3 rounded-lg border text-sm ${policyAlert.isExceeded
+                                        ? 'bg-red-50 border-red-200 text-red-800'
+                                        : 'bg-green-50 border-green-200 text-green-800'
+                                    }`}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="font-bold uppercase text-xs">{policyAlert.rank} Limit</span>
+                                        <span className="font-mono">{policyAlert.isExceeded ? 'Exceeded' : 'Active'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                        <span>Limit: {policyAlert.limit.toLocaleString()}</span>
+                                        <span>Spent: {policyAlert.spent.toLocaleString()}</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-black/10 rounded-full mt-2 overflow-hidden">
+                                        <div
+                                            className={`h-full ${policyAlert.isExceeded ? 'bg-red-500' : 'bg-green-500'}`}
+                                            style={{ width: `${Math.min(100, (policyAlert.spent / policyAlert.limit) * 100)}%` }}
+                                        />
+                                    </div>
+                                    {policyAlert.isExceeded && (
+                                        <p className="mt-2 text-xs font-bold flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" /> Policy Violated: Annual Limit Exceeded
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             <Separator className="bg-slate-100" />
 
                             <div className="grid grid-cols-2 gap-4">
@@ -249,10 +304,10 @@ const NoteSheet = () => {
                             </div>
                         </CardContent>
                     </Card>
-                </div>
+                </div >
 
                 {/* Right Column: Items */}
-                <div className="lg:col-span-8 space-y-6">
+                < div className="lg:col-span-8 space-y-6" >
                     <Card className="shadow-lg border-sky-100 dark:border-sky-900 bg-card min-h-[500px] flex flex-col">
                         <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4 flex flex-row items-center justify-between">
                             <CardTitle className="text-sm font-bold text-sky-800 uppercase tracking-wider">Note Sheet Items</CardTitle>
@@ -367,9 +422,9 @@ const NoteSheet = () => {
                             </Table>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
+                </div >
+            </div >
+        </div >
     );
 };
 

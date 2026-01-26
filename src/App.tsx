@@ -17,6 +17,7 @@ import MonthlyCycle from "./pages/MonthlyCycle";
 import Reports from "./pages/Reports";
 import DeviceManagement from "./pages/DeviceManagement";
 import UserManagement from "./pages/UserManagement";
+import AdminChat from "./pages/AdminChat";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import SqlData from "./pages/SqlData";
@@ -24,6 +25,7 @@ import EmployeeEntry from "./pages/EmployeeEntry";
 import NoteSheet from "./pages/NoteSheet";
 import NotFound from "./pages/NotFound";
 import VirtualCard from "./pages/VirtualCard";
+import Claims from "./pages/Claims";
 import { TreatmentProvider } from "./contexts/TreatmentContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 
@@ -110,6 +112,7 @@ const AppRoutes = () => {
           }
         />
         <Route path="users" element={<UserManagement />} />
+        <Route path="admin-chat" element={<AdminChat />} />
         <Route path="profile" element={<Profile />} />
         <Route path="medical-card" element={<VirtualCard />} />
         <Route path="settings" element={<Settings />} />
@@ -130,9 +133,10 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+        <Route path="claims" element={<Claims />} />
       </Route>
       <Route path="*" element={<NotFound />} />
-    </Routes>
+    </Routes >
   );
 };
 

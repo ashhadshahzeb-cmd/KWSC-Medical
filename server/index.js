@@ -193,15 +193,227 @@ app.get('/api/dashboard/stats', async (req, res) => {
         const hospitalCount = await pool.query('SELECT COUNT(*) FROM treatment2 WHERE hospital_name IS NOT NULL AND hospital_name != $1', ['']);
         const labCount = await pool.query('SELECT COUNT(*) FROM treatment2 WHERE lab_name IS NOT NULL AND lab_name != $1', ['']);
 
-        // Fetch global recent activities for admin
-        const recentActivities = await pool.query('SELECT * FROM treatment2 ORDER BY visit_date DESC LIMIT 10');
+        // Fetch Storage Stats
+        const storageRes = await pool.query('SELECT pg_database_size(current_database()) as size_bytes');
+        const sizeBytes = parseInt(storageRes.rows[0].size_bytes);
+        const totalLimitBytes = 500 * 1024 * 1024; // 500MB for Neon Free Tier
+        const storagePercentage = (sizeBytes / totalLimitBytes) * 100;
+
+        const storage = {
+            bytes: sizeBytes,
+            humanReadable: (sizeBytes / (1024 * 1024)).toFixed(2) + ' MB',
+            percentage: storagePercentage.toFixed(2),
+            isCritical: storagePercentage > 80
+        };
+
+        // Auto-Notification if Critical
+        if (storage.isCritical) {
+            // Check if alert already sent in last 24 hours
+            const lastAlert = await pool.query(
+                "SELECT id FROM notifications WHERE type = 'storage_warning' AND created_at > NOW() - INTERVAL '1 day'"
+            );
+            if (lastAlert.rows.length === 0) {
+                await pool.query(
+                    'INSERT INTO notifications (type, title, message, status) VALUES ($1, $2, $3, $4)',
+                    ['storage_warning', 'Database Storage Alert', `Database storage is ${storage.percentage}% full (${storage.humanReadable} used). Please clean up or upgrade.`, 'unread']
+                );
+            }
+        }
 
         res.json({
             patients: patientsCount.rows[0].count,
             medicine: medicineCount.rows[0].count,
             hospital: hospitalCount.rows[0].count,
             lab: labCount.rows[0].count,
-            recentActivities: recentActivities.rows
+            recentActivities: recentActivities.rows,
+            storage
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// CHAT SYSTEM API
+// ============================================================================
+
+// Send a message
+app.post('/api/chat/send', async (req, res) => {
+    const { senderId, receiverId, message, isAdminMessage } = req.body;
+    try {
+        const result = await pool.query(
+            'INSERT INTO chat_messages (sender_id, receiver_id, message, is_admin_message) VALUES ($1, $2, $3, $4) RETURNING *',
+            [senderId, receiverId, message, isAdminMessage || false]
+        );
+        res.json({ success: true, message: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get chat history for a user
+app.get('/api/chat/history/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT * FROM chat_messages 
+             WHERE sender_id = $1 OR receiver_id = $1 
+             ORDER BY created_at ASC`,
+            [userId] // Fetches all messages where user is either sender or receiver
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get list of users who have chatted (For Admin)
+app.get('/api/chat/users', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT DISTINCT u.id, u.full_name, u.email, u.role
+             FROM chat_messages cm
+             JOIN users u ON u.id = cm.sender_id
+             WHERE cm.is_admin_message = FALSE`
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+// ============================================================================
+// CLAIMS REIMBURSEMENT API
+// ============================================================================
+
+// Submit a new claim
+app.post('/api/claims/submit', async (req, res) => {
+    const { userId, empNo, amount, claimType, description, imageUrl } = req.body;
+    try {
+        const result = await pool.query(
+            `INSERT INTO claims (user_id, emp_no, amount, claim_type, description, image_url) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [userId, empNo, amount, claimType, description, imageUrl]
+        );
+        res.json({ success: true, claim: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get user's claims
+app.get('/api/claims/user/:userId', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM claims WHERE user_id = $1 ORDER BY created_at DESC',
+            [req.params.userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get all claims for admin
+app.get('/api/claims/admin', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT c.*, u.full_name, u.email 
+             FROM claims c 
+             JOIN users u ON c.user_id = u.id 
+             ORDER BY c.created_at DESC`
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update claim status (Approve/Reject)
+app.put('/api/claims/:id/status', async (req, res) => {
+    const { status, adminComments } = req.body;
+    const { id } = req.params;
+
+    try {
+        // Update status
+        const claim = await pool.query(
+            'UPDATE claims SET status = $1, admin_comments = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+            [status, adminComments, id]
+        );
+
+        // If Approved, deduct from balance (add to treatment2)
+        if (status === 'Approved' && claim.rows.length > 0) {
+            const c = claim.rows[0];
+            await pool.query(
+                `INSERT INTO treatment2 (emp_no, medicine_amount, description, treatment)
+                 VALUES ($1, $2, $3, 'Reimbursement')`,
+                [c.emp_no, c.amount, `Reimbursement Claim ID: ${c.id}`]
+            );
+        }
+
+        res.json({ success: true, claim: claim.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// FAMILY MANAGEMENT API
+// ============================================================================
+
+// Add a family member
+app.post('/api/family/add', async (req, res) => {
+    const { userId, name, relation, dob, gender } = req.body;
+    try {
+        const result = await pool.query(
+            `INSERT INTO family_members (user_id, name, relation, dob, gender) 
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [userId, name, relation, dob, gender]
+        );
+        res.json({ success: true, member: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get user's family members
+app.get('/api/family/:userId', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM family_members WHERE user_id = $1 ORDER BY relation',
+            [req.params.userId]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// POLICY & LIMITS API
+// ============================================================================
+
+// Check user policy status
+app.get('/api/policy/check/:empNo', async (req, res) => {
+    const { empNo } = req.params;
+    try {
+        // 1. Get User Rank (Assuming 'role' or 'designation' in users/registration)
+        // For demo, we'll map empNo patterns or default to 'Staff'
+        const rank = empNo.startsWith('KW-OFF') ? 'Officer' : 'Staff';
+
+        // 2. Get Policy Limits
+        const policyRes = await pool.query('SELECT * FROM policies WHERE rank_name = $1', [rank]);
+        const policy = policyRes.rows[0];
+
+        // 3. Get Current Spending
+        const spentRes = await pool.query('SELECT SUM(medicine_amount) FROM treatment2 WHERE emp_no = $1', [empNo]);
+        const spent = parseFloat(spentRes.rows[0].sum || 0);
+
+        res.json({
+            rank,
+            limit: parseFloat(policy.annual_limit),
+            spent,
+            remaining: parseFloat(policy.annual_limit) - spent,
+            isExceeded: spent >= parseFloat(policy.annual_limit)
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -609,6 +821,7 @@ app.post('/api/treatment/validate-cycle', async (req, res) => {
             cycleNo,
             allowMonth,
             employee: employeeDetails ? {
+                id: employeeDetails.id,
                 empNo: employeeDetails.emp_no,
                 name: employeeDetails.emp_name,
                 bookNo: employeeDetails.book_no,
@@ -1023,8 +1236,13 @@ const initSchema = async () => {
 };
 
 // Start Server
-app.listen(PORT, async () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log('Database: PostgreSQL via Supabase');
-    await initSchema();
-});
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, async () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+        console.log('Database: PostgreSQL via Supabase');
+        await initSchema();
+    });
+}
+
+// Export for Vercel
+module.exports = app;

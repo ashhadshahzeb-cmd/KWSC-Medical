@@ -22,6 +22,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Database, AlertTriangle } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { sqlApi } from "@/lib/api";
@@ -52,7 +54,8 @@ const Dashboard = () => {
             { label: "Alerts", value: "0", icon: Clock, trend: "0" },
             { label: "Health Score", value: "98%", icon: Heart, trend: "+2%" },
           ],
-          recentVisits: stats.recentActivities
+          recentVisits: stats.recentActivities,
+          storage: stats.storage
         });
       } else if (user?.empNo) {
         const userStats = await sqlApi.dashboard.getUserStats(user.empNo);
@@ -106,6 +109,33 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8 pb-10">
+      {/* DB Storage Alert for Admin */}
+      {isAdmin && dashboardData?.storage?.isCritical && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="overflow-hidden"
+        >
+          <Alert variant="destructive" className="border-destructive/50 bg-destructive/10 animate-pulse">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Critical Storage Warning!</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-4">
+              <span>
+                Your database storage is <b>{dashboardData.storage.percentage}%</b> full
+                ({dashboardData.storage.humanReadable} used of 500 MB).
+                Please contact support to upgrade your limits before the system becomes read-only.
+              </span>
+              <div className="h-2 w-32 bg-destructive/20 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-destructive transition-all duration-1000"
+                  style={{ width: `${Math.min(100, dashboardData.storage.percentage)}%` }}
+                />
+              </div>
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      )}
+
       {/* Hero Welcome Section */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
