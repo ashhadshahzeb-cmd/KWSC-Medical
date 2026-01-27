@@ -81,7 +81,18 @@ app.delete('/api/notifications', async (req, res) => {
 
 app.get('/api/users/:id/card', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM medical_cards WHERE user_id = $1', [req.params.id]);
+        console.log(`[MEDICAL_CARD] Fetching card for user ID: ${req.params.id}`);
+
+        // Ensure ID is valid integer
+        const userId = parseInt(req.params.id);
+        if (isNaN(userId)) {
+            console.log('[MEDICAL_CARD] Invalid User ID');
+            return res.status(400).json({ error: 'Invalid User ID' });
+        }
+
+        const result = await pool.query('SELECT * FROM medical_cards WHERE user_id = $1', [userId]);
+        console.log(`[MEDICAL_CARD] Found ${result.rows.length} cards`);
+
         if (result.rows.length === 0) return res.json(null);
 
         const card = result.rows[0];

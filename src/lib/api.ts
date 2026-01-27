@@ -1,5 +1,8 @@
 // API Client for SQL Server Backend
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// API Client for SQL Server Backend
+const API_BASE = import.meta.env.PROD
+    ? '/api'
+    : (import.meta.env.VITE_API_URL || 'http://localhost:5000/api');
 
 // Helper function for API calls
 export async function apiCall(endpoint: string, options: RequestInit = {}) {

@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { sqlApi } from '@/lib/api';
 import MedicalCard from '@/components/profile/MedicalCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, CreditCard, Info, AlertTriangle } from 'lucide-react';
+import { Loader2, CreditCard, Info, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ManageCardDialog from '@/components/admin/ManageCardDialog';
 import { Button } from '@/components/ui/button';
@@ -101,9 +101,25 @@ const VirtualCard = () => {
                             <CardDescription className="mt-2 max-w-[250px]">
                                 Your virtual medical card hasn't been issued yet. Please contact the administrator.
                             </CardDescription>
+
+                            <div className="text-[10px] text-muted-foreground mt-4 font-mono bg-muted px-2 py-1 rounded">
+                                User ID: {user?.id} | Role: {(user as any)?.role}
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-4 gap-2"
+                                onClick={fetchCard}
+                                disabled={loading}
+                            >
+                                <RotateCcw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                                Refresh Status
+                            </Button>
+
                             {(user as any)?.role === 'admin' && (
                                 <Button
-                                    className="mt-6 gap-2"
+                                    className="mt-2 gap-2"
                                     onClick={() => setShowManageDialog(true)}
                                 >
                                     <CreditCard className="w-4 h-4" />
