@@ -371,14 +371,14 @@ app.put('/api/claims/:id/status', async (req, res) => {
 // FAMILY MANAGEMENT API
 // ============================================================================
 
-// Add a family member
+// Add a family member with card details
 app.post('/api/family/add', async (req, res) => {
-    const { userId, name, relation, dob, gender } = req.body;
+    const { userId, name, relation, dob, gender, card_no, valid_upto, hospitalization, room_limit, total_limit, cnic } = req.body;
     try {
         const result = await pool.query(
-            `INSERT INTO family_members (user_id, name, relation, dob, gender) 
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [userId, name, relation, dob, gender]
+            `INSERT INTO family_members (user_id, name, relation, dob, gender, card_no, valid_upto, hospitalization, room_limit, total_limit, cnic) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+            [userId, name, relation, dob || null, gender, card_no || null, valid_upto || null, hospitalization || null, room_limit || null, total_limit || 50000, cnic || null]
         );
         res.json({ success: true, member: result.rows[0] });
     } catch (err) {
@@ -386,7 +386,7 @@ app.post('/api/family/add', async (req, res) => {
     }
 });
 
-// Get user's family members
+// Get user's family members with card details
 app.get('/api/family/:userId', async (req, res) => {
     try {
         const result = await pool.query(
@@ -394,6 +394,47 @@ app.get('/api/family/:userId', async (req, res) => {
             [req.params.userId]
         );
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update individual family member card
+app.put('/api/family/:memberId', async (req, res) => {
+    const { memberId } = req.params;
+    const { name, relation, dob, gender, card_no, valid_upto, hospitalization, room_limit, total_limit, cnic } = req.body;
+    try {
+        const result = await pool.query(
+            `UPDATE family_members SET 
+                name = COALESCE($1, name),
+                relation = COALESCE($2, relation),
+                dob = COALESCE($3, dob),
+                gender = COALESCE($4, gender),
+                card_no = COALESCE($5, card_no),
+                valid_upto = COALESCE($6, valid_upto),
+                hospitalization = COALESCE($7, hospitalization),
+                room_limit = COALESCE($8, room_limit),
+                total_limit = COALESCE($9, total_limit),
+                cnic = COALESCE($10, cnic)
+             WHERE id = $11 RETURNING *`,
+            [name, relation, dob || null, gender, card_no, valid_upto || null, hospitalization, room_limit, total_limit, cnic, memberId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Family member not found' });
+        }
+
+        res.json({ success: true, member: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Delete family member
+app.delete('/api/family/:memberId', async (req, res) => {
+    try {
+        await pool.query('DELETE FROM family_members WHERE id = $1', [req.params.memberId]);
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { sqlApi } from '@/lib/api';
 import MedicalCard from '@/components/profile/MedicalCard';
+import FamilyMemberCard from '@/components/profile/FamilyMemberCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, CreditCard, Info, AlertTriangle, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -32,18 +33,32 @@ const VirtualCard = () => {
 
     const fetchCard = async () => {
         if (!user?.id) return;
+        setLoading(true);
         try {
+            console.log('[VirtualCard] Fetching card for user:', user.id);
             const data = await sqlApi.medicalCards.getByUserId(user.id);
-            // Fetch family info
+            console.log('[VirtualCard] Card data received:', data);
+
             if (data) {
-                const familyRes = await fetch(`${import.meta.env.VITE_API_URL}/family/${user.id}`);
-                const familyData = await familyRes.json();
-                setCardData({ ...data, family_members: familyData || [] });
+                // Fetch family info using same API base
+                try {
+                    const API_BASE = import.meta.env.PROD
+                        ? '/api'
+                        : (import.meta.env.VITE_API_URL || 'http://localhost:5000/api');
+                    const familyRes = await fetch(`${API_BASE}/family/${user.id}`);
+                    const familyData = await familyRes.json();
+                    setCardData({ ...data, family_members: familyData || [] });
+                } catch (familyErr) {
+                    console.log('[VirtualCard] Family fetch failed, showing card without family:', familyErr);
+                    setCardData(data);
+                }
             } else {
+                console.log('[VirtualCard] No card data found');
                 setCardData(null);
             }
         } catch (error) {
-            console.error('Error fetching card:', error);
+            console.error('[VirtualCard] Error fetching card:', error);
+            setCardData(null);
         } finally {
             setLoading(false);
         }
@@ -86,10 +101,31 @@ const VirtualCard = () => {
                 <div className="lg:col-span-12 xl:col-span-7 flex flex-col items-center justify-center gap-6">
                     {cardData ? (
                         <>
-                            <MedicalCard data={cardData} />
+                            {/* Main Employee Card */}
+                            <div className="w-full">
+                                <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2 text-center">Your Card</p>
+                                <MedicalCard data={cardData} />
+                            </div>
+
+                            {/* Family Member Cards */}
+                            {cardData.family_members && cardData.family_members.length > 0 && (
+                                <div className="w-full space-y-3">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-widest text-center">Family Member Cards</p>
+                                    <div className="flex gap-4 overflow-x-auto pb-4 px-2 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+                                        {cardData.family_members.map((member: any) => (
+                                            <FamilyMemberCard
+                                                key={member.id}
+                                                member={member}
+                                                employeeName={cardData.participant_name}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 rounded-full border border-border/50">
                                 <Info className="w-4 h-4 text-primary" />
-                                <p className="text-xs font-medium text-muted-foreground">Click the card to view benefits and coverage details on the back.</p>
+                                <p className="text-xs font-medium text-muted-foreground">Click any card to view benefits on the back.</p>
                             </div>
                         </>
                     ) : (
