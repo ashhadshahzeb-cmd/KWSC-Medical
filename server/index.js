@@ -7,7 +7,7 @@ const QRCode = require('qrcode');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
-const { pool } = require('./db.cjs');
+const { pool } = require('./db.js');
 
 
 // Email Transporter (For OTP)
